@@ -1,0 +1,79 @@
+version: "3"
+
+services:
+
+  postgres:
+    image: postgres 
+    container_name: postgres-server
+    ports:
+    - "5432:5432"
+    networks:
+    - zabbix_net
+    environment:
+    - POSTGRES_USER=zabbix
+    - POSTGRES_PASSWORD=zabbix
+    - POSTGRES_DB=zabbix
+    - PG_DATA=/var/lib/postgresql/data/pgdata
+    volumes:
+    - /volumes/postgres:/var/lib/postgresql/data
+
+  zabbixserver:
+    image: zabbix/zabbix-server-pgsql
+    container_name: zabbixserver
+    hostname: zabbixserver
+    ports:
+    - "10051:10051"
+    networks:
+    - zabbix_net
+    depends_on:
+    - "postgres"
+    volumes:
+    - /volumes/zabbix:/var/lib/zabbix
+    environment:
+    - POSTGRES_USER=zabbix
+    - POSTGRES_PASSWORD=zabbix
+    - POSTGRES_DB=zabbix
+
+  zabbixweb:
+    image: zabbix/zabbix-web-apache-pgsql
+    container_name: zabbixweb
+    environment:
+    - POSTGRES_USER=zabbix
+    - POSTGRES_PASSWORD=zabbix
+    - POSTGRES_DB=zabbix
+    - ZBX_SERVER_HOST=zabbixserver
+    - ZBX_POSTMAXSIZE=64M
+    - PHP_TZ=Europe/Warsaw
+    - ZBX_MAXEXECUTIONTIME=500
+    depends_on:
+    - postgres
+    - zabbixserver
+    ports:
+    - "80:8080" 
+    networks:
+    - zabbix_net
+
+  zabbixagent:
+    image: zabbix/zabbix-agent
+    container_name: zabbixagent
+    environment:
+    - ZBX_SERVER_HOST=zabbixserver
+    privileged: true
+    networks:
+    - zabbix_net
+    ports:
+    - "10050:10050"
+
+  grafana-xxl:
+    image: monitoringartist/grafana-xxl
+    container_name: grafana
+    ports:
+    - "3000:3000"
+    networks:
+    - zabbix_net
+    volumes:
+    - /volumes/grafana:/var/lib/grafana
+
+networks:
+  zabbix_net:
+    driver: bridge
